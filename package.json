@@ -1,0 +1,8 @@
+{
+  "name": "helpinkorea",
+  "version": "1.0.0",
+  "private": true,
+  "description": "helpinKorea — Korea representative, local agent and concierge services website",
+  "scripts": { "dev": "vercel dev", "test": "node test/contact.test.js" },
+  "engines": { "node": ">=18" }
+}
