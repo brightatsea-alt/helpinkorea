@@ -435,23 +435,47 @@ const CONFIG = {
 
   // submit
   const form=document.getElementById('inquiryForm'),btn=document.getElementById('submitBtn'),msg=document.getElementById('formMsg');
+  const FIELDS=[['service','Service'],['name','Name'],['email','Email'],['country','Country'],['phone','WhatsApp / phone'],
+    ['company','Company'],['website','Website'],['industry','Industry / product'],['timeline','Timeline'],
+    ['agentType','Appointment needed'],['goal','Main goal'],['task','Task'],['link','Link / location'],
+    ['budget','Budget'],['message','Message'],['page','Page'],['submittedAt','Submitted at (UTC)']];
+
+  // Direct browser -> FormSubmit fallback. Used only when /api/contact cannot deliver.
+  async function sendDirect(d){
+    const payload={_subject:'[helpinKorea] '+(d.service||'Inquiry')+' — '+d.name+' ('+(d.country||'?')+')',
+      _template:'table',_captcha:'false',_replyto:d.email,name:d.name,email:d.email};
+    FIELDS.forEach(([k,label])=>{if(d[k])payload[label]=d[k];});
+    const r=await fetch('https://formsubmit.co/ajax/tailwind@kakao.com',
+      {method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||String(j.success)==='false')throw new Error(j.message||('HTTP '+r.status));
+  }
+
   form.addEventListener('submit',async e=>{
     e.preventDefault();msg.className='form-msg';
     if(!form.checkValidity()){form.reportValidity();return;}
     const data=Object.fromEntries(new FormData(form).entries());
     data.page=location.href;data.submittedAt=new Date().toISOString();
     btn.classList.add('loading');btn.disabled=true;
+    let sent=false,lastErr=null;
     try{
       const r=await fetch('/api/contact',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
       const j=await r.json().catch(()=>({}));
-      if(r.ok&&j.ok){msg.textContent='Thank you — your inquiry is on its way. You will hear from us within one business day (KST).';msg.classList.add('ok');form.reset();setService('agent');
-        if(window.gtag)gtag('event','generate_lead',{service:data.service});}
-      else throw new Error(j.error||'Could not send');
-    }catch(err){
-      const body=encodeURIComponent(Object.entries(data).map(([k,v])=>k+': '+v).join('\n'));
-      msg.innerHTML='Sorry, the form could not be sent ('+err.message+'). Please email us instead: <a href="mailto:tailwind@kakao.com?subject=helpinKorea inquiry&body='+body+'">tailwind@kakao.com</a>';
+      if(r.ok&&j.ok)sent=true; else lastErr=new Error(j.error||('HTTP '+r.status));
+    }catch(err){lastErr=err;}
+    if(!sent&&!data._gotcha){
+      try{await sendDirect(data);sent=true;}catch(err2){lastErr=err2;}
+    }
+    if(sent){
+      msg.textContent='Thank you — your inquiry is on its way. You will hear from us within one business day (KST).';
+      msg.classList.add('ok');form.reset();setService('agent');
+      if(window.gtag)gtag('event','generate_lead',{service:data.service});
+    }else{
+      const body=encodeURIComponent(FIELDS.filter(([k])=>data[k]).map(([k,l])=>l+': '+data[k]).join('\n'));
+      msg.innerHTML='Sorry, we could not send the form from here ('+(lastErr?lastErr.message:'unknown error')+'). Please email us instead — this link has your details already filled in: <a href="mailto:tailwind@kakao.com?subject=helpinKorea inquiry&body='+body+'">tailwind@kakao.com</a>';
       msg.classList.add('err');
-    }finally{btn.classList.remove('loading');btn.disabled=false;}
+    }
+    btn.classList.remove('loading');btn.disabled=false;
   });
 })();
 </script>
