@@ -66,7 +66,12 @@ async function viaWeb3Forms(d, m) {
 
 async function viaFormSubmit(d, m) {
   const r = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(CONTACT_TO)}`, {
-    method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+    method: "POST", headers: {
+      "Content-Type": "application/json", Accept: "application/json",
+      // FormSubmit is built for browser calls; without these a datacenter request is often challenged.
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+      Origin: "https://helpinkorea.vercel.app", Referer: "https://helpinkorea.vercel.app/"
+    },
     body: JSON.stringify({
       _subject: m.subject, _template: "table", _replyto: d.email, _captcha: "false",
       ...Object.fromEntries(FIELDS.filter(([k]) => d[k]).map(([k, label]) => [label, d[k]]))
